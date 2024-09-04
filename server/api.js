@@ -4,6 +4,11 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import client from './connection.js';
 import cors from 'cors';
+import fileUpload from 'express-fileupload'
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path'
+
+const __dirname = import.meta.dirname;
 
 const app = express();
 const port = process.env.PORT || 3000
@@ -15,7 +20,8 @@ client.connect();
 
 app.use(cors());
 app.use(bodyParser.json());
-
+app.use(express.static(path.resolve(__dirname, 'static')));
+app.use(fileUpload({}))
 
 
 app.post('/register', async (req, res) => {
@@ -97,7 +103,7 @@ app.post('/users', (req, res) => {
   const user = req.body;
 
   let insertQuery = `insert into users(id, first_name, last_name, location)
-                       values(${user.id}, '${user['first_name']}', '${user['last_name']}', '${user.location}')`
+                    values(${user.id}, '${user['first_name']}', '${user['last_name']}', '${user.location}')`
 
   client.query(insertQuery, (err, result) => {
     if (!err) {
@@ -137,5 +143,25 @@ app.delete('/users/:id', (req, res) => {
     }
     else { console.log(err.message) }
   })
+  client.end;
+})
+
+
+app.post('/posts', (req, res) => {
+  const { title, description } = req.body;
+  const { img } = req.files
+  let fileName = uuidv4() + '.jpg'
+
+  img.mv(path.resolve(__dirname, '..', 'server/static', fileName))
+
+  let insertQuery = `INSERT INTO posts(title, img, description) VALUES($1, $2, $3)`;
+  client.query(insertQuery, [title, fileName, description], (err, result) => {
+    if (err) {
+      console.error('Error on add to bd :', err);
+      return res.status(500).send('Error on add to bd');
+    }
+  })
+  res.send('Post was successfully created!');
+
   client.end;
 })
